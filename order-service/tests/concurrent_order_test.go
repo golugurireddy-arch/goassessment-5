@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-// mockProductClient simulates resilient client responses without live network dependencies
 type mockProductClient struct {
 	mu       sync.RWMutex
 	products map[string]*model.Product
@@ -50,7 +49,6 @@ func (m *mockProductClient) GetProduct(ctx context.Context, productID string) (*
 	return p, nil
 }
 
-// inMemoryOrderRepo implements repository.OrderRepository safely for concurrent unit tests
 type inMemoryOrderRepo struct {
 	mu     sync.RWMutex
 	orders map[string]*model.Order
@@ -69,7 +67,6 @@ func (r *inMemoryOrderRepo) Create(ctx context.Context, order *model.Order) erro
 	if _, exists := r.orders[order.ID]; exists {
 		return fmt.Errorf("order %s already exists", order.ID)
 	}
-	// Store copy to prevent caller mutation race conditions
 	cp := *order
 	r.orders[order.ID] = &cp
 	return nil
@@ -117,8 +114,6 @@ func (r *inMemoryOrderRepo) UpdateStatus(ctx context.Context, id string, status 
 	return &cp, nil
 }
 
-// TestConcurrentOrders_100Requests tests 100 simultaneous order placements
-// verifying thread safety, correct calculations, and no data races.
 func TestConcurrentOrders_100Requests(t *testing.T) {
 	repo := newInMemoryOrderRepo()
 	prodClient := newMockProductClient()
@@ -137,12 +132,10 @@ func TestConcurrentOrders_100Requests(t *testing.T) {
 		wg.Add(1)
 		go func(idx int) {
 			defer wg.Done()
-
-			// Wait until all goroutines are spawned to simulate maximum instantaneous burst
 			<-startBarrier
 
 			customerID := fmt.Sprintf("cust-%03d", idx)
-			qty := (idx % 3) + 1 // quantities: 1, 2, or 3
+			qty := (idx % 3) + 1
 
 			order, err := orderSvc.CreateOrder(context.Background(), customerID, "1", qty)
 			if err != nil {
@@ -155,19 +148,16 @@ func TestConcurrentOrders_100Requests(t *testing.T) {
 		}(i)
 	}
 
-	// Release all workers simultaneously
 	close(startBarrier)
 	wg.Wait()
 
-	assert.Equal(t, int64(totalWorkers), successCount, "All 100 concurrent requests should succeed")
-	assert.Equal(t, int64(0), failCount, "No requests should fail under concurrency")
+	assert.Equal(t, int64(totalWorkers), successCount)
+	assert.Equal(t, int64(0), failCount)
 
-	// Validate repository persistence integrity
 	allOrders, err := repo.List(context.Background())
 	require.NoError(t, err)
-	assert.Len(t, allOrders, totalWorkers, "All 100 orders must be recorded in the repository")
+	assert.Len(t, allOrders, totalWorkers)
 
-	// Verify uniqueness of generated UUIDs
 	uniqueIDs := make(map[string]struct{}, totalWorkers)
 	for _, id := range createdOrderIDs {
 		require.NotEmpty(t, id)
@@ -177,14 +167,11 @@ func TestConcurrentOrders_100Requests(t *testing.T) {
 	}
 }
 
-// TestConcurrentStatusUpdates tests concurrent updates to the same order to ensure
-// validation logic and transition state locking behave properly.
 func TestConcurrentStatusUpdates(t *testing.T) {
 	repo := newInMemoryOrderRepo()
 	prodClient := newMockProductClient()
 	orderSvc := service.NewOrderService(repo, prodClient)
 
-	// Create a single order
 	order, err := orderSvc.CreateOrder(context.Background(), "cust-test", "1", 2)
 	require.NoError(t, err)
 

@@ -5,48 +5,25 @@ phases:
     runtime-versions:
       golang: 1.22
     commands:
-      - echo "Checking Go version..."
       - go version
 
   pre_build:
     commands:
-      - echo "Creating output directory..."
-      - mkdir -p $CODEBUILD_SRC_DIR/bin
-      - echo "Downloading dependencies for all services..."
       - cd $CODEBUILD_SRC_DIR/api-gateway && go mod download
       - cd $CODEBUILD_SRC_DIR/order-service && go mod download
       - cd $CODEBUILD_SRC_DIR/product-service && go mod download
 
   build:
     commands:
-      - echo "Running unit & concurrency tests..."
-      # Run mock/unit tests in the tests package (does not require live DB)
+      # Run mock/unit tests
       - cd $CODEBUILD_SRC_DIR/order-service && go test -v ./tests/...
-
-      - echo "Building API Gateway..."
-      - cd $CODEBUILD_SRC_DIR/api-gateway
-      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $CODEBUILD_SRC_DIR/bin/api-gateway main.go
-
-      - echo "Building Order Service..."
-      - cd $CODEBUILD_SRC_DIR/order-service
-      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $CODEBUILD_SRC_DIR/bin/order-service main.go
-
-      - echo "Building Product Service..."
-      - cd $CODEBUILD_SRC_DIR/product-service
-      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $CODEBUILD_SRC_DIR/bin/product-service main.go
-
-  post_build:
-    commands:
-      - echo "Build completed on $(date)"
-      - ls -lh $CODEBUILD_SRC_DIR/bin/
+      # Build all service binaries into bin/
+      - cd $CODEBUILD_SRC_DIR/api-gateway && GOOS=linux GOARCH=amd64 go build -o $CODEBUILD_SRC_DIR/bin/api-gateway main.go
+      - cd $CODEBUILD_SRC_DIR/order-service && GOOS=linux GOARCH=amd64 go build -o $CODEBUILD_SRC_DIR/bin/order-service main.go
+      - cd $CODEBUILD_SRC_DIR/product-service && GOOS=linux GOARCH=amd64 go build -o $CODEBUILD_SRC_DIR/bin/product-service main.go
 
 artifacts:
   files:
     - bin/*
     - .env.example
-  discard-paths: false
-
-cache:
-  paths:
-    - '/go/pkg/mod/**/*'
-    - '/root/.cache/go-build/**/*'
+    - Procfile
