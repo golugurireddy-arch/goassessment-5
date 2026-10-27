@@ -5,31 +5,33 @@ phases:
     runtime-versions:
       golang: 1.22
     commands:
-      - echo "Installing dependencies and verifying Go version..."
+      - echo "Checking Go version..."
       - go version
 
   pre_build:
     commands:
-      - echo "Fetching module dependencies for all microservices..."
+      - echo "Creating output directory..."
+      - mkdir -p $CODEBUILD_SRC_DIR/bin
+      - echo "Downloading dependencies for all services..."
       - cd $CODEBUILD_SRC_DIR/api-gateway && go mod download
       - cd $CODEBUILD_SRC_DIR/order-service && go mod download
       - cd $CODEBUILD_SRC_DIR/product-service && go mod download
 
   build:
     commands:
-      - echo "Running automated tests..."
-      - cd $CODEBUILD_SRC_DIR/order-service && go test -v ./...
-      
-      - echo "Compiling microservice binaries..."
-      # 1. Compile API Gateway
+      - echo "Running unit & concurrency tests..."
+      # Run mock/unit tests in the tests package (does not require live DB)
+      - cd $CODEBUILD_SRC_DIR/order-service && go test -v ./tests/...
+
+      - echo "Building API Gateway..."
       - cd $CODEBUILD_SRC_DIR/api-gateway
       - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $CODEBUILD_SRC_DIR/bin/api-gateway main.go
-      
-      # 2. Compile Order Service
+
+      - echo "Building Order Service..."
       - cd $CODEBUILD_SRC_DIR/order-service
       - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $CODEBUILD_SRC_DIR/bin/order-service main.go
-      
-      # 3. Compile Product Service
+
+      - echo "Building Product Service..."
       - cd $CODEBUILD_SRC_DIR/product-service
       - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $CODEBUILD_SRC_DIR/bin/product-service main.go
 
