@@ -1,25 +1,50 @@
-
 version: 0.2
 
 phases:
   install:
     runtime-versions:
-      golang: 1.27
+      golang: 1.22
     commands:
-      - mkdir -p /tmp/go-cache
+      - echo "Installing dependencies and verifying Go version..."
       - go version
 
   pre_build:
     commands:
-      - export GOCACHE=/tmp/go-cache
-      - go mod download
+      - echo "Fetching module dependencies for all microservices..."
+      - cd $CODEBUILD_SRC_DIR/api-gateway && go mod download
+      - cd $CODEBUILD_SRC_DIR/order-service && go mod download
+      - cd $CODEBUILD_SRC_DIR/product-service && go mod download
 
   build:
     commands:
-      - export GOCACHE=/tmp/go-cache
-      - GOOS=linux GOARCH=amd64 go build -o application .
+      - echo "Running automated tests..."
+      - cd $CODEBUILD_SRC_DIR/order-service && go test -v ./...
+      
+      - echo "Compiling microservice binaries..."
+      # 1. Compile API Gateway
+      - cd $CODEBUILD_SRC_DIR/api-gateway
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $CODEBUILD_SRC_DIR/bin/api-gateway main.go
+      
+      # 2. Compile Order Service
+      - cd $CODEBUILD_SRC_DIR/order-service
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $CODEBUILD_SRC_DIR/bin/order-service main.go
+      
+      # 3. Compile Product Service
+      - cd $CODEBUILD_SRC_DIR/product-service
+      - CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build -ldflags="-s -w" -o $CODEBUILD_SRC_DIR/bin/product-service main.go
+
+  post_build:
+    commands:
+      - echo "Build completed on $(date)"
+      - ls -lh $CODEBUILD_SRC_DIR/bin/
 
 artifacts:
   files:
-    - application
-    - Procfile
+    - bin/*
+    - .env.example
+  discard-paths: false
+
+cache:
+  paths:
+    - '/go/pkg/mod/**/*'
+    - '/root/.cache/go-build/**/*'
