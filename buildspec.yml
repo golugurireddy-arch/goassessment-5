@@ -24,11 +24,11 @@ phases:
       - cd $CODEBUILD_SRC_DIR/api-gateway && GOOS=linux GOARCH=amd64 go build -o $CODEBUILD_SRC_DIR/bin/api-gateway main.go
       - cd $CODEBUILD_SRC_DIR/order-service && GOOS=linux GOARCH=amd64 go build -o $CODEBUILD_SRC_DIR/bin/order-service main.go
       - cd $CODEBUILD_SRC_DIR/product-service && GOOS=linux GOARCH=amd64 go build -o $CODEBUILD_SRC_DIR/bin/product-service main.go
+      # Make start-all.sh the bin/application executable expected by Procfile
+      - cp $CODEBUILD_SRC_DIR/start-all.sh $CODEBUILD_SRC_DIR/bin/application
       - chmod +x $CODEBUILD_SRC_DIR/bin/*
 
 artifacts:
   files:
     - bin/*
     - Procfile
-    - .ebextensions/**/*
-    - .env
