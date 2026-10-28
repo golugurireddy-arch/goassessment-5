@@ -20,11 +20,15 @@ phases:
     commands:
       - mkdir -p $CODEBUILD_SRC_DIR/bin
       - cd $CODEBUILD_SRC_DIR/order-service && go test -v ./tests/...
+      # Build all three microservices
       - cd $CODEBUILD_SRC_DIR/api-gateway && GOOS=linux GOARCH=amd64 go build -o $CODEBUILD_SRC_DIR/bin/api-gateway main.go
       - cd $CODEBUILD_SRC_DIR/order-service && GOOS=linux GOARCH=amd64 go build -o $CODEBUILD_SRC_DIR/bin/order-service main.go
       - cd $CODEBUILD_SRC_DIR/product-service && GOOS=linux GOARCH=amd64 go build -o $CODEBUILD_SRC_DIR/bin/product-service main.go
+      - chmod +x $CODEBUILD_SRC_DIR/bin/*
 
 artifacts:
   files:
     - bin/*
     - Procfile
+    - .ebextensions/**/*
+    - .env
